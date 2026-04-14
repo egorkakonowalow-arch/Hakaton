@@ -1,6 +1,6 @@
 import { useNavigate, Link } from 'react-router-dom';
 import { mockApi } from '../services/mockApi';
-import ImageStrip from './ImageStrip';
+import maxLogo from '../../img/564561-1.png';
 
 export default function Login() {
   const navigate = useNavigate();
@@ -56,7 +56,9 @@ export default function Login() {
               onClick={handleLogin}
             >
               <span className="max-btn-inner">
-                <span className="max-logo" aria-hidden />
+                <span className="max-logo-frame" aria-hidden>
+                  <img src={maxLogo} alt="" className="max-logo" />
+                </span>
                 Вход через MAX
               </span>
             </button>
@@ -65,7 +67,6 @@ export default function Login() {
         <div className="footer-link">
           <Link to="/register">Регистрация</Link>
         </div>
-        <ImageStrip />
       </div>
     </div>
   );

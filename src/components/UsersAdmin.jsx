@@ -8,16 +8,19 @@ const emptyForm = () => ({
   role: 'employee',
   allDistricts: false,
   districtIds: [],
+  projectIds: [],
 });
 
 export default function UsersAdmin() {
   const [users, setUsers] = useState(() => mockApi.getUsers());
   const [districts, setDistricts] = useState(() => mockApi.getDistricts());
+  const [projects, setProjects] = useState(() => mockApi.getProjects());
   const [form, setForm] = useState(emptyForm);
 
   function refresh() {
     setUsers(mockApi.getUsers());
     setDistricts(mockApi.getDistricts());
+    setProjects(mockApi.getProjects());
   }
 
   function startEdit(u) {
@@ -28,6 +31,7 @@ export default function UsersAdmin() {
       role: u.role,
       allDistricts: Boolean(u.allDistricts),
       districtIds: [...(u.districtIds || [])],
+      projectIds: [...(u.projectIds || [])],
     });
   }
 
@@ -90,6 +94,7 @@ export default function UsersAdmin() {
                   role: e.target.value,
                   districtIds: [],
                   allDistricts: false,
+                  projectIds: [],
                 }))
               }
             >
@@ -165,6 +170,30 @@ export default function UsersAdmin() {
             </div>
           )}
 
+          {(form.role === 'employee' || form.role === 'manager') && (
+            <div className="field" style={{ gridColumn: '1 / -1' }}>
+              <label>Проекты участия (несколько)</label>
+              <select
+                className="select"
+                multiple
+                size={Math.min(6, Math.max(3, projects.length || 3))}
+                value={form.projectIds}
+                onChange={(e) => {
+                  const selected = Array.from(e.target.selectedOptions).map(
+                    (o) => o.value
+                  );
+                  setForm((f) => ({ ...f, projectIds: selected }));
+                }}
+              >
+                {projects.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
           <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
             <button type="submit" className="btn btn--primary">
               Сохранить
@@ -192,6 +221,7 @@ export default function UsersAdmin() {
                 <th>Email</th>
                 <th>Роль</th>
                 <th>Районы</th>
+                <th>Проекты</th>
                 <th />
               </tr>
             </thead>
@@ -210,6 +240,13 @@ export default function UsersAdmin() {
                               districtOptions.find((d) => d.id === id)?.name || id
                           )
                           .join(', ') || '—'}
+                  </td>
+                  <td>
+                    {(u.projectIds || [])
+                      .map(
+                        (id) => projects.find((p) => p.id === id)?.name || id
+                      )
+                      .join(', ') || '—'}
                   </td>
                   <td>
                     <button

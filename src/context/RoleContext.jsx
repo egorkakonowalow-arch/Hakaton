@@ -7,6 +7,15 @@ import React, {
 } from 'react';
 import { mockApi, MANAGER_DEPARTMENT, ASSIGNEES } from '../services/mockApi';
 
+function employeeNamesForDemo() {
+  try {
+    const n = mockApi.getEmployeeNames();
+    return n.length ? n : [...ASSIGNEES];
+  } catch {
+    return [...ASSIGNEES];
+  }
+}
+
 const RoleContext = createContext(null);
 
 const ROLE_KEY = 'mgmt_role';
@@ -23,13 +32,14 @@ function loadRole() {
 }
 
 function loadExec() {
+  const names = employeeNamesForDemo();
   try {
     const e = localStorage.getItem(EXEC_KEY);
-    if (ASSIGNEES.includes(e)) return e;
+    if (names.includes(e)) return e;
   } catch {
     /* ignore */
   }
-  return ASSIGNEES[0];
+  return names[0];
 }
 
 export function RoleProvider({ children }) {
@@ -50,9 +60,8 @@ export function RoleProvider({ children }) {
 
   const filterTasks = useCallback(
     (tasks) => {
-      if (role === 'admin') return tasks;
-      if (role === 'manager')
-        return tasks.filter((t) => t.group === MANAGER_DEPARTMENT);
+      if (role === 'admin') return [];
+      if (role === 'manager') return tasks;
       return tasks.filter((t) => t.assignee === executorPerson);
     },
     [role, executorPerson]
@@ -80,13 +89,12 @@ export function RoleProvider({ children }) {
   const canSeeModule = useCallback((moduleId) => {
     if (moduleId === 'profile') return true;
     if (role === 'admin')
-      return ['districts', 'users', 'data', 'scenarios'].includes(moduleId);
+      return ['districts', 'users', 'data'].includes(moduleId);
     if (role === 'manager')
-      return ['tasks', 'plans', 'analytics', 'data', 'scenarios'].includes(
+      return ['tasks', 'plans', 'analytics', 'data', 'projects'].includes(
         moduleId
       );
-    if (role === 'executor')
-      return ['tasks', 'data', 'scenarios'].includes(moduleId);
+    if (role === 'executor') return ['tasks', 'data'].includes(moduleId);
     return false;
   }, [role]);
 

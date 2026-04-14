@@ -10,10 +10,12 @@ const K = {
   responses: `${PREFIX}formResponses`,
   plans: `${PREFIX}plans`,
   tasks: `${PREFIX}tasks`,
-  session: `${PREFIX}session`,
   districts: `${PREFIX}districts`,
   users: `${PREFIX}users`,
+  projects: `${PREFIX}projects`,
 };
+
+let memorySession = { loggedIn: false };
 
 function read(key, fallback) {
   try {
@@ -58,10 +60,11 @@ function migrateReportFields(fields) {
     let type = f.type;
     if (type === 'number' || type === 'file') type = 'photo';
     if (!['text', 'date', 'photo'].includes(type)) type = 'text';
-    const required =
+    let required =
       f.required !== undefined
         ? Boolean(f.required)
         : type !== 'photo';
+    if (type === 'photo') required = false;
     return { ...f, type, required };
   });
 }
@@ -94,38 +97,63 @@ function seedIfEmpty() {
     { id: uid(), name: 'Борозинский район', code: 'borozinsky' },
   ];
 
+  const uKuzmin = uid();
+  const uIvanov = uid();
+  const uPetrov = uid();
+  const uSidorova = uid();
+
   const users = [
     {
-      id: uid(),
+      id: uKuzmin,
       fullName: 'Кузмин В.Б.',
       email: 'kuzmin@example.org',
       role: 'manager',
       allDistricts: true,
       districtIds: [],
+      projectIds: [],
     },
     {
-      id: uid(),
+      id: uIvanov,
       fullName: 'Иванов',
       email: 'ivanov@example.org',
       role: 'employee',
       allDistricts: false,
       districtIds: [districtId],
+      projectIds: [],
     },
     {
-      id: uid(),
+      id: uPetrov,
       fullName: 'Петров',
       email: 'petrov@example.org',
       role: 'employee',
       allDistricts: false,
       districtIds: [districtId],
+      projectIds: [],
     },
     {
-      id: uid(),
+      id: uSidorova,
       fullName: 'Сидорова',
       email: 'sidorova@example.org',
       role: 'employee',
       allDistricts: false,
       districtIds: [districtId],
+      projectIds: [],
+    },
+  ];
+
+  const projectId = uid();
+  users[0].projectIds = [projectId];
+  users[1].projectIds = [projectId];
+  users[2].projectIds = [projectId];
+  users[3].projectIds = [projectId];
+
+  const projects = [
+    {
+      id: projectId,
+      name: 'Патриотическое воспитание',
+      description: 'Демо-проект',
+      employeeIds: [uIvanov, uPetrov, uSidorova],
+      managerIds: [uKuzmin],
     },
   ];
 
@@ -141,6 +169,8 @@ function seedIfEmpty() {
       description: 'Сбор цифр за квартал',
       group: MANAGER_DEPARTMENT,
       status: 'в работе',
+      employeeStage: 'получена',
+      reviewState: null,
       createdAt: new Date().toISOString(),
     },
     {
@@ -151,6 +181,8 @@ function seedIfEmpty() {
       description: 'Встреча с командой',
       group: MANAGER_DEPARTMENT,
       status: 'в работе',
+      employeeStage: 'выполняется',
+      reviewState: null,
       createdAt: new Date().toISOString(),
     },
     {
@@ -160,7 +192,9 @@ function seedIfEmpty() {
       assignee: 'Сидорова',
       description: 'Проверка документов',
       group: 'HR',
-      status: 'выполнено',
+      status: 'в работе',
+      employeeStage: 'выполнена',
+      reviewState: 'проверено',
       completedAt: new Date(today.getTime() - 86400000 * 3).toISOString(),
       createdAt: new Date().toISOString(),
     },
@@ -193,6 +227,7 @@ function seedIfEmpty() {
   write(K.tasks, tasks);
   write(K.districts, districts);
   write(K.users, users);
+  write(K.projects, projects);
 }
 
 function ensureDirectories() {
@@ -218,6 +253,7 @@ function ensureDirectories() {
         role: 'manager',
         allDistricts: true,
         districtIds: [],
+        projectIds: [],
       },
       {
         id: uid(),
@@ -226,6 +262,7 @@ function ensureDirectories() {
         role: 'employee',
         allDistricts: false,
         districtIds: [d0],
+        projectIds: [],
       },
       {
         id: uid(),
@@ -234,6 +271,7 @@ function ensureDirectories() {
         role: 'employee',
         allDistricts: false,
         districtIds: [d0],
+        projectIds: [],
       },
       {
         id: uid(),
@@ -242,25 +280,95 @@ function ensureDirectories() {
         role: 'employee',
         allDistricts: false,
         districtIds: [d0],
+        projectIds: [],
       },
     ]);
   }
+  if (read(K.projects, null) === null) write(K.projects, []);
+}
+
+function migrateTask(t) {
+  let reviewState =
+    t.reviewState === 'на проверке' || t.reviewState === 'проверено'
+      ? t.reviewState
+      : null;
+  if (reviewState == null && t.status === 'выполнено') reviewState = 'проверено';
+  return {
+    ...t,
+    employeeStage: t.employeeStage || 'получена',
+    reviewState,
+  };
 }
 
 function normalizeTask(t) {
-  const due = t.dueDate;
+  const m = migrateTask(t);
+  const due = m.dueDate;
   const today = new Date().toISOString().slice(0, 10);
-  let status = t.status;
-  if (status !== 'выполнено' && due < today) status = 'просрочено';
-  return { ...t, status };
+  let status = m.status || 'в работе';
+  if (m.reviewState === 'проверено') {
+    status = 'проверено';
+  } else if (m.reviewState === 'на проверке') {
+    status = 'на проверке';
+  } else if (due < today && m.reviewState !== 'проверено') {
+    status = 'просрочено';
+  } else {
+    status = 'в работе';
+  }
+  return { ...m, status };
+}
+
+function migrateUsersList(list) {
+  return list.map((u) => ({
+    ...u,
+    projectIds: Array.isArray(u.projectIds) ? u.projectIds : [],
+  }));
+}
+
+function syncProjectMembership(projectId, employeeIds, managerIds) {
+  const users = migrateUsersList(read(K.users, []));
+  const empSet = new Set(employeeIds || []);
+  const mgrSet = new Set(managerIds || []);
+  users.forEach((u) => {
+    const pids = new Set(u.projectIds || []);
+    if (u.role === 'employee') {
+      if (empSet.has(u.id)) pids.add(projectId);
+      else pids.delete(projectId);
+    } else if (u.role === 'manager') {
+      if (mgrSet.has(u.id)) pids.add(projectId);
+      else pids.delete(projectId);
+    }
+    u.projectIds = [...pids];
+  });
+  write(K.users, users);
+}
+
+/** После сохранения пользователя — обновить составы project.employeeIds / managerIds */
+function syncUserProjectsFromUserRow(user) {
+  if (user.role !== 'employee' && user.role !== 'manager') return;
+  const projects = read(K.projects, []);
+  const want = new Set(user.projectIds || []);
+  projects.forEach((p) => {
+    const eids = new Set(p.employeeIds || []);
+    const mids = new Set(p.managerIds || []);
+    if (user.role === 'employee') {
+      if (want.has(p.id)) eids.add(user.id);
+      else eids.delete(user.id);
+    } else {
+      if (want.has(p.id)) mids.add(user.id);
+      else mids.delete(user.id);
+    }
+    p.employeeIds = [...eids];
+    p.managerIds = [...mids];
+  });
+  write(K.projects, projects);
 }
 
 export const mockApi = {
   getSession() {
-    return read(K.session, { loggedIn: false });
+    return memorySession;
   },
   setSession(s) {
-    write(K.session, s);
+    memorySession = { ...s };
   },
 
   getDistricts() {
@@ -287,7 +395,46 @@ export const mockApi = {
 
   getUsers() {
     ensureDirectories();
-    return read(K.users, []);
+    const raw = read(K.users, []);
+    const list = migrateUsersList(raw);
+    if (JSON.stringify(list) !== JSON.stringify(raw)) {
+      write(K.users, list);
+    }
+    return list;
+  },
+  getProjects() {
+    ensureDirectories();
+    return read(K.projects, []);
+  },
+  saveProject(payload) {
+    ensureDirectories();
+    const list = read(K.projects, []);
+    const row = {
+      id: payload.id || uid(),
+      name: (payload.name || '').trim(),
+      description: (payload.description || '').trim(),
+      employeeIds: Array.isArray(payload.employeeIds) ? payload.employeeIds : [],
+      managerIds: Array.isArray(payload.managerIds) ? payload.managerIds : [],
+    };
+    if (!row.name) throw new Error('Укажите название проекта');
+    const i = list.findIndex((p) => p.id === row.id);
+    if (i >= 0) list[i] = row;
+    else list.push(row);
+    write(K.projects, list);
+    syncProjectMembership(row.id, row.employeeIds, row.managerIds);
+    return row;
+  },
+  deleteProject(id) {
+    ensureDirectories();
+    write(
+      K.projects,
+      read(K.projects, []).filter((p) => p.id !== id)
+    );
+    const users = migrateUsersList(read(K.users, []));
+    users.forEach((u) => {
+      u.projectIds = (u.projectIds || []).filter((pid) => pid !== id);
+    });
+    write(K.users, users);
   },
   saveUser(payload) {
     ensureDirectories();
@@ -299,6 +446,7 @@ export const mockApi = {
       role: payload.role,
       allDistricts: Boolean(payload.allDistricts),
       districtIds: Array.isArray(payload.districtIds) ? payload.districtIds : [],
+      projectIds: Array.isArray(payload.projectIds) ? payload.projectIds : [],
     };
     if (row.role === 'employee' && row.districtIds.length !== 1) {
       throw new Error('Сотруднику нужен ровно один район');
@@ -310,6 +458,7 @@ export const mockApi = {
     if (i >= 0) list[i] = row;
     else list.push(row);
     write(K.users, list);
+    syncUserProjectsFromUserRow(row);
     return row;
   },
   deleteUser(id) {
@@ -318,6 +467,12 @@ export const mockApi = {
       K.users,
       read(K.users, []).filter((u) => u.id !== id)
     );
+    const projects = read(K.projects, []);
+    projects.forEach((p) => {
+      p.employeeIds = (p.employeeIds || []).filter((x) => x !== id);
+      p.managerIds = (p.managerIds || []).filter((x) => x !== id);
+    });
+    write(K.projects, projects);
   },
 
   getForms() {
@@ -335,12 +490,16 @@ export const mockApi = {
     const row = {
       id: uid(),
       title: title.trim(),
-      fields: fields.map((f) => ({
-        id: f.id || uid(),
-        label: (f.label || '').trim(),
-        type: ['text', 'date', 'photo'].includes(f.type) ? f.type : 'text',
-        required: Boolean(f.required),
-      })),
+      fields: fields.map((f) => {
+        const type = ['text', 'date', 'photo'].includes(f.type) ? f.type : 'text';
+        const required = type === 'photo' ? false : Boolean(f.required);
+        return {
+          id: f.id || uid(),
+          label: (f.label || '').trim(),
+          type,
+          required,
+        };
+      }),
       createdAt: new Date().toISOString(),
     };
     forms.push(row);
@@ -437,6 +596,8 @@ export const mockApi = {
       description: payload.description || '',
       group: payload.group || MANAGER_DEPARTMENT,
       status: 'в работе',
+      employeeStage: 'получена',
+      reviewState: null,
       createdAt: new Date().toISOString(),
     };
     tasks.push(row);
@@ -464,6 +625,58 @@ export const mockApi = {
     tasks[i] = { ...tasks[i], ...patch };
     write(K.tasks, tasks);
     return normalizeTask(tasks[i]);
+  },
+  deleteTask(id) {
+    ensureDirectories();
+    const tasks = read(K.tasks, []).filter((t) => t.id !== id);
+    write(K.tasks, tasks);
+  },
+
+  setTaskEmployeeStage(id, employeeStage) {
+    const allowed = ['получена', 'выполняется', 'выполнена'];
+    if (!allowed.includes(employeeStage)) return null;
+    return this.updateTask(id, { employeeStage });
+  },
+
+  submitTaskForReview(id) {
+    ensureDirectories();
+    const tasks = read(K.tasks, []);
+    const i = tasks.findIndex((t) => t.id === id);
+    if (i < 0) return null;
+    const t = tasks[i];
+    if (t.reviewState === 'проверено') return normalizeTask(t);
+    if (t.employeeStage !== 'выполнена') {
+      throw new Error('Сначала отметьте этап «Выполнена»');
+    }
+    tasks[i] = {
+      ...t,
+      reviewState: 'на проверке',
+      employeeStage: 'выполнена',
+    };
+    write(K.tasks, tasks);
+    return normalizeTask(tasks[i]);
+  },
+
+  approveTask(id) {
+    ensureDirectories();
+    const tasks = read(K.tasks, []);
+    const i = tasks.findIndex((t) => t.id === id);
+    if (i < 0) return null;
+    const t = tasks[i];
+    if (t.reviewState !== 'на проверке') return normalizeTask(t);
+    tasks[i] = {
+      ...t,
+      reviewState: 'проверено',
+      completedAt: new Date().toISOString(),
+    };
+    write(K.tasks, tasks);
+    return normalizeTask(tasks[i]);
+  },
+
+  getEmployeeNames() {
+    return this.getUsers()
+      .filter((u) => u.role === 'employee')
+      .map((u) => u.fullName);
   },
 
   assignees: ASSIGNEES,

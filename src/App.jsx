@@ -10,7 +10,7 @@ import Analytics from './components/Analytics';
 import UserProfile from './components/UserProfile';
 import Districts from './components/Districts';
 import UsersAdmin from './components/UsersAdmin';
-import Scenarios from './components/Scenarios';
+import Projects from './components/Projects';
 import RoleHomeRedirect from './components/RoleHomeRedirect';
 
 function LoginGate({ children }) {
@@ -43,7 +43,7 @@ export default function App() {
         <Route path="districts" element={<Districts />} />
         <Route path="users" element={<UsersAdmin />} />
         <Route path="data" element={<DataCollection />} />
-        <Route path="scenarios" element={<Scenarios />} />
+        <Route path="projects" element={<Projects />} />
         <Route path="plans" element={<Planning />} />
         <Route path="tasks" element={<Tasks />} />
         <Route path="analytics" element={<Analytics />} />

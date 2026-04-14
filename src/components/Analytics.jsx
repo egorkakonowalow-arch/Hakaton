@@ -52,11 +52,14 @@ export default function Analytics() {
   const [periodFrom, setPeriodFrom] = useState('');
   const [periodTo, setPeriodTo] = useState('');
   const [filterAssignee, setFilterAssignee] = useState('');
+  const [filterDistrictId, setFilterDistrictId] = useState('');
 
   const [chartFormId, setChartFormId] = useState('');
   const [chartFieldId, setChartFieldId] = useState('');
 
   const forms = mockApi.getForms();
+  const districts = useMemo(() => mockApi.getDistricts(), []);
+  const users = useMemo(() => mockApi.getUsers(), []);
   const allTasks = useMemo(() => mockApi.getTasks(), []);
   const allPlans = useMemo(() => mockApi.getPlans(), []);
   const allResponses = useMemo(() => mockApi.getResponses(), []);
@@ -83,25 +86,53 @@ export default function Analytics() {
     return true;
   };
 
+  const getUserByName = (name) => users.find((u) => u.fullName === name);
+
+  const inDistrictByAssignee = (assigneeName) => {
+    if (!filterDistrictId) return true;
+    const u = getUserByName(assigneeName);
+    if (!u) return false;
+    return (u.districtIds || []).includes(filterDistrictId);
+  };
+
+  const inDistrictBySubmitter = (submitterName) => {
+    if (!filterDistrictId) return true;
+    const u = getUserByName(submitterName);
+    if (!u) return false;
+    return (u.districtIds || []).includes(filterDistrictId);
+  };
+
   const tasksFiltered = useMemo(() => {
     return tasks.filter((t) => {
       if (filterAssignee && t.assignee !== filterAssignee) return false;
+      if (!inDistrictByAssignee(t.assignee)) return false;
       const ref =
         t.status === 'выполнено' && t.completedAt
           ? t.completedAt
           : t.createdAt;
       return inPeriod(ref);
     });
-  }, [tasks, filterAssignee, periodFrom, periodTo]);
+  }, [tasks, filterAssignee, filterDistrictId, periodFrom, periodTo, users]);
+
+  const responsesFiltered = useMemo(
+    () => responses.filter((r) => inDistrictBySubmitter(r.submittedBy)),
+    [responses, filterDistrictId, users]
+  );
 
   const stats = useMemo(() => {
     const totalTasks = tasksFiltered.length;
-    const done = tasksFiltered.filter((t) => t.status === 'выполнено').length;
+    const done = tasksFiltered.filter(
+      (t) =>
+        t.status === 'проверено' ||
+        t.reviewState === 'проверено' ||
+        t.status === 'выполнено'
+    ).length;
     const overdue = tasksFiltered.filter((t) => t.status === 'просрочено').length;
+    const donePercent = totalTasks ? Math.round((done / totalTasks) * 100) : 0;
     const totalPlans = plans.length;
-    const totalForms = responses.length;
-    return { totalTasks, done, overdue, totalPlans, totalForms };
-  }, [tasksFiltered, plans, responses]);
+    const totalForms = responsesFiltered.length;
+    return { totalTasks, done, overdue, donePercent, totalPlans, totalForms };
+  }, [tasksFiltered, plans, responsesFiltered]);
 
   const formForChart = forms.find((f) => f.id === chartFormId);
   const chartFieldDef = formForChart?.fields?.find((x) => x.id === chartFieldId);
@@ -109,21 +140,22 @@ export default function Analytics() {
 
   const barData = useMemo(() => {
     if (!chartFormId || !chartFieldId || !chartFieldDef) return [];
-    return responses
+    return responsesFiltered
       .filter((r) => r.formId === chartFormId)
       .map((r, idx) => ({
         name: `#${idx + 1}`,
         value: chartValueForField(chartFieldDef, r.answers[chartFieldId]),
       }))
       .filter((x) => x.value != null);
-  }, [chartFormId, chartFieldId, chartFieldDef, responses]);
+  }, [chartFormId, chartFieldId, chartFieldDef, responsesFiltered]);
 
   const lineData = useMemo(() => {
     const doneTasks = tasks.filter(
       (t) =>
         t.status === 'выполнено' &&
         t.completedAt &&
-        (!filterAssignee || t.assignee === filterAssignee)
+        (!filterAssignee || t.assignee === filterAssignee) &&
+        inDistrictByAssignee(t.assignee)
     );
     const byDay = {};
     doneTasks.forEach((t) => {
@@ -134,7 +166,17 @@ export default function Analytics() {
     return Object.keys(byDay)
       .sort()
       .map((d) => ({ date: d, count: byDay[d] }));
-  }, [tasks, filterAssignee, periodFrom, periodTo]);
+  }, [tasks, filterAssignee, filterDistrictId, periodFrom, periodTo, users]);
+
+  const progressData = useMemo(
+    () => [
+      {
+        name: 'Выполнение',
+        percent: stats.donePercent,
+      },
+    ],
+    [stats.donePercent]
+  );
 
   function handleExport() {
     exportCsv(
@@ -143,7 +185,13 @@ export default function Analytics() {
           metric: 'Всего задач (в фильтре)',
           value: stats.totalTasks,
         },
+        {
+          metric: 'Район',
+          value:
+            districts.find((d) => d.id === filterDistrictId)?.name || 'Все районы',
+        },
         { metric: 'Выполнено', value: stats.done },
+        { metric: 'Процент выполнения задач', value: `${stats.donePercent}%` },
         { metric: 'Просрочено', value: stats.overdue },
         { metric: 'Всего планов', value: stats.totalPlans },
         { metric: 'Отправлено форм', value: stats.totalForms },
@@ -193,6 +241,21 @@ export default function Analytics() {
               ))}
             </select>
           </div>
+          <div className="field">
+            <label>Район</label>
+            <select
+              className="select"
+              value={filterDistrictId}
+              onChange={(e) => setFilterDistrictId(e.target.value)}
+            >
+              <option value="">Все районы</option>
+              {districts.map((d) => (
+                <option key={d.id} value={d.id}>
+                  {d.name}
+                </option>
+              ))}
+            </select>
+          </div>
           <div className="field" style={{ alignSelf: 'end' }}>
             <button type="button" className="btn btn--primary" onClick={handleExport}>
               Экспорт CSV
@@ -216,6 +279,12 @@ export default function Analytics() {
         </div>
         <div className="stat-card">
           <span style={{ color: 'var(--color-gray)', fontSize: '0.85rem' }}>
+            Выполнение задач, %
+          </span>
+          <strong>{stats.donePercent}%</strong>
+        </div>
+        <div className="stat-card">
+          <span style={{ color: 'var(--color-gray)', fontSize: '0.85rem' }}>
             Просрочено
           </span>
           <strong>{stats.overdue}</strong>
@@ -231,6 +300,22 @@ export default function Analytics() {
             Отправок форм
           </span>
           <strong>{stats.totalForms}</strong>
+        </div>
+      </div>
+
+      <div className="panel">
+        <h2>Диаграмма: процент выполнения задач</h2>
+        <div style={{ width: '100%', height: 220 }}>
+          <ResponsiveContainer>
+            <BarChart data={progressData}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="name" />
+              <YAxis domain={[0, 100]} />
+              <Tooltip formatter={(v) => `${v}%`} />
+              <Legend />
+              <Bar dataKey="percent" fill="#ca2629" name="Процент выполнения" />
+            </BarChart>
+          </ResponsiveContainer>
         </div>
       </div>
 

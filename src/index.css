@@ -193,6 +193,22 @@ button {
   object-fit: cover;
 }
 
+.mobile-menu-btn {
+  display: none;
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
+  border: none;
+  background: var(--color-red);
+  color: var(--color-white);
+  font-size: 1.3rem;
+  line-height: 1;
+}
+
+.mobile-backdrop {
+  display: none;
+}
+
 .page-content {
   padding: 0 1.5rem 2rem;
   flex: 1;
@@ -466,7 +482,11 @@ table.data-table {
 
 .login-actions .btn {
   width: 100%;
+  min-height: 54px;
+  height: 54px;
   margin-bottom: 0.5rem;
+  padding-top: 0;
+  padding-bottom: 0;
 }
 
 .forgot {
@@ -490,36 +510,96 @@ table.data-table {
   justify-content: center;
 }
 
-.max-logo {
-  width: 28px;
-  height: 28px;
+.max-logo-frame {
+  width: 50px;
+  height: 50px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #4facfe, #a855f7);
+  overflow: hidden;
+  background: var(--color-red);
   flex-shrink: 0;
+  display: grid;
+  place-items: center;
+}
+
+.max-logo {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  object-fit: cover;
+  transform: scale(1.08);
 }
 
 @media (max-width: 900px) {
   .app-shell {
-    flex-direction: column;
+    flex-direction: row;
   }
 
   .sidebar {
-    width: 100%;
-    flex-direction: row;
-    flex-wrap: wrap;
-    align-items: center;
+    position: fixed;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: min(82vw, 320px);
+    z-index: 1001;
+    transform: translateX(-105%);
+    transition: transform 0.2s ease;
+    overflow-y: auto;
+  }
+
+  .sidebar.sidebar--open {
+    transform: translateX(0);
   }
 
   .sidebar__nav {
-    flex-direction: row;
-    flex-wrap: wrap;
-    width: 100%;
+    flex-direction: column;
+    width: auto;
   }
 
   .nav-link {
-    flex: 1 1 auto;
-    justify-content: center;
-    min-width: 120px;
+    justify-content: flex-start;
+    min-width: 0;
+  }
+
+  .main-area {
+    width: 100%;
+  }
+
+  .top-bar {
+    padding: 0.85rem 1rem;
+    gap: 0.6rem;
+  }
+
+  .mobile-menu-btn {
+    display: inline-grid;
+    place-items: center;
+    flex-shrink: 0;
+  }
+
+  .search-pill {
+    min-width: 0;
+  }
+
+  .top-bar__actions {
+    gap: 0.4rem;
+  }
+
+  .icon-btn {
+    width: 38px;
+    height: 38px;
+  }
+
+  .icon-btn img {
+    width: 28px;
+    height: 28px;
+  }
+
+  .mobile-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    border: none;
+    background: rgba(0, 0, 0, 0.35);
+    z-index: 1000;
   }
 
   .page-content {

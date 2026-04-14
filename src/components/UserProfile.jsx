@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { useRole } from '../context/RoleContext';
-import { mockApi } from '../services/mockApi';
+import { mockApi, ASSIGNEES } from '../services/mockApi';
 
 const ROLE_LABEL = {
   admin: 'Администратор',
@@ -18,8 +18,12 @@ export default function UserProfile() {
     filterTasks,
     filterPlans,
     filterResponses,
-    ASSIGNEES,
   } = useRole();
+
+  const nameOptions = useMemo(() => {
+    const n = mockApi.getEmployeeNames();
+    return n.length ? n : [...ASSIGNEES];
+  }, [role, executorPerson]);
 
   const tasks = useMemo(() => filterTasks(mockApi.getTasks()), [filterTasks]);
   const plans = useMemo(() => filterPlans(mockApi.getPlans()), [filterPlans]);
@@ -67,7 +71,7 @@ export default function UserProfile() {
               value={executorPerson}
               onChange={(e) => setExecutorPerson(e.target.value)}
             >
-              {ASSIGNEES.map((a) => (
+              {nameOptions.map((a) => (
                 <option key={a} value={a}>
                   {a}
                 </option>
@@ -77,28 +81,31 @@ export default function UserProfile() {
         )}
       </div>
 
-      <div className="grid-2">
-        <div className="panel">
-          <h2>Мои задачи (в зоне видимости)</h2>
-          <ul style={{ margin: 0, paddingLeft: '1.1rem' }}>
-            {tasks.map((t) => (
-              <li key={t.id}>
-                {t.title} — <span className="badge badge--muted">{t.status}</span>
-              </li>
-            ))}
-            {!tasks.length && <li>Нет задач</li>}
-          </ul>
+      {role !== 'admin' && (
+        <div className="grid-2">
+          <div className="panel">
+            <h2>Мои задачи (в зоне видимости)</h2>
+            <ul style={{ margin: 0, paddingLeft: '1.1rem' }}>
+              {tasks.map((t) => (
+                <li key={t.id}>
+                  {t.title} —{' '}
+                  <span className="badge badge--muted">{t.status}</span>
+                </li>
+              ))}
+              {!tasks.length && <li>Нет задач</li>}
+            </ul>
+          </div>
+          <div className="panel">
+            <h2>Планы, где я ответственный</h2>
+            <ul style={{ margin: 0, paddingLeft: '1.1rem' }}>
+              {myPlans.map((p) => (
+                <li key={p.id}>{p.title}</li>
+              ))}
+              {!myPlans.length && <li>Нет планов</li>}
+            </ul>
+          </div>
         </div>
-        <div className="panel">
-          <h2>Планы, где я ответственный</h2>
-          <ul style={{ margin: 0, paddingLeft: '1.1rem' }}>
-            {myPlans.map((p) => (
-              <li key={p.id}>{p.title}</li>
-            ))}
-            {!myPlans.length && <li>Нет планов</li>}
-          </ul>
-        </div>
-      </div>
+      )}
 
       <div className="panel">
         <h2>Отправленные отчёты</h2>

@@ -34,8 +34,16 @@ export default function Districts() {
 
       <div className="panel">
         <h2>Добавить район</h2>
-        <form onSubmit={handleAdd} className="grid-2">
-          <div className="field">
+        <form
+          onSubmit={handleAdd}
+          style={{
+            display: 'flex',
+            flexWrap: 'wrap',
+            gap: '1rem',
+            alignItems: 'flex-end',
+          }}
+        >
+          <div className="field" style={{ flex: '1 1 200px', marginBottom: 0 }}>
             <label>Название</label>
             <input
               className="input"
@@ -45,7 +53,7 @@ export default function Districts() {
               required
             />
           </div>
-          <div className="field">
+          <div className="field" style={{ flex: '1 1 160px', marginBottom: 0 }}>
             <label>Код</label>
             <input
               className="input"
@@ -54,7 +62,7 @@ export default function Districts() {
               placeholder="chita"
             />
           </div>
-          <div>
+          <div style={{ flex: '0 0 auto', paddingBottom: 2 }}>
             <button type="submit" className="btn btn--primary">
               Добавить
             </button>
