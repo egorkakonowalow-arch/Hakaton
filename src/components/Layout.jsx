@@ -5,10 +5,13 @@ import logoImg from '../../img/Pervye_logotip_tsvetnoy_Montazhnaya_oblast_1.png'
 import avatarDemo from '../../img/face-young-handsome-man_251136-17557.jpg';
 
 const NAV = [
+  { to: '/districts', id: 'districts', label: 'Районы', icon: '📍' },
+  { to: '/users', id: 'users', label: 'Пользователи', icon: '👥' },
+  { to: '/data', id: 'data', label: 'Отчёты', icon: '▤' },
   { to: '/analytics', id: 'analytics', label: 'Аналитика', icon: '▦' },
-  { to: '/data', id: 'data', label: 'Данные и формы', icon: '▤' },
   { to: '/plans', id: 'plans', label: 'Планирование', icon: '▥' },
   { to: '/tasks', id: 'tasks', label: 'Задачи', icon: '✓' },
+  { to: '/scenarios', id: 'scenarios', label: 'Сценарии', icon: 'ⓘ' },
   { to: '/profile', id: 'profile', label: 'Личный кабинет', icon: '●' },
 ];
 

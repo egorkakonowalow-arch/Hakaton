@@ -172,27 +172,13 @@ export default function Planning() {
           {tpl?.fields?.map((f) => (
             <div key={f.key} className="field">
               <label>{f.label}</label>
-              {f.type === 'number' ? (
-                <input
-                  type="number"
-                  className="input"
-                  value={extra[f.key] ?? ''}
-                  onChange={(e) =>
-                    setExtra((x) => ({
-                      ...x,
-                      [f.key]: e.target.value === '' ? '' : Number(e.target.value),
-                    }))
-                  }
-                />
-              ) : (
-                <input
-                  className="input"
-                  value={extra[f.key] || ''}
-                  onChange={(e) =>
-                    setExtra((x) => ({ ...x, [f.key]: e.target.value }))
-                  }
-                />
-              )}
+              <input
+                className="input"
+                value={extra[f.key] || ''}
+                onChange={(e) =>
+                  setExtra((x) => ({ ...x, [f.key]: e.target.value }))
+                }
+              />
             </div>
           ))}
           <div style={{ gridColumn: '1 / -1', display: 'flex', gap: '0.5rem' }}>

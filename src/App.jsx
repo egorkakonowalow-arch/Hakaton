@@ -8,10 +8,14 @@ import Planning from './components/Planning';
 import Tasks from './components/Tasks';
 import Analytics from './components/Analytics';
 import UserProfile from './components/UserProfile';
+import Districts from './components/Districts';
+import UsersAdmin from './components/UsersAdmin';
+import Scenarios from './components/Scenarios';
+import RoleHomeRedirect from './components/RoleHomeRedirect';
 
 function LoginGate({ children }) {
   const s = mockApi.getSession();
-  if (s.loggedIn) return <Navigate to="/analytics" replace />;
+  if (s.loggedIn) return <RoleHomeRedirect />;
   return children;
 }
 
@@ -35,8 +39,11 @@ export default function App() {
         }
       />
       <Route path="/" element={<ProtectedLayout />}>
-        <Route index element={<Navigate to="/analytics" replace />} />
+        <Route index element={<RoleHomeRedirect />} />
+        <Route path="districts" element={<Districts />} />
+        <Route path="users" element={<UsersAdmin />} />
         <Route path="data" element={<DataCollection />} />
+        <Route path="scenarios" element={<Scenarios />} />
         <Route path="plans" element={<Planning />} />
         <Route path="tasks" element={<Tasks />} />
         <Route path="analytics" element={<Analytics />} />

@@ -14,10 +14,16 @@ import {
 import { mockApi } from '../services/mockApi';
 import { useRole } from '../context/RoleContext';
 
-function parseNum(v) {
-  if (v === undefined || v === null || v === '') return null;
-  const n = Number(v);
-  return Number.isFinite(n) ? n : null;
+function chartValueForField(field, raw) {
+  if (raw === undefined || raw === null || raw === '') return null;
+  if (!field) return null;
+  if (field.type === 'text') return String(raw).length;
+  if (field.type === 'date') {
+    const t = new Date(raw).getTime();
+    return Number.isFinite(t) ? Math.round(t / 86400000) : null;
+  }
+  if (field.type === 'photo') return String(raw).trim() ? 1 : 0;
+  return null;
 }
 
 function exportCsv(rows, filename) {
@@ -50,7 +56,7 @@ export default function Analytics() {
   const [chartFormId, setChartFormId] = useState('');
   const [chartFieldId, setChartFieldId] = useState('');
 
-  const forms = useMemo(() => mockApi.getForms(), []);
+  const forms = mockApi.getForms();
   const allTasks = useMemo(() => mockApi.getTasks(), []);
   const allPlans = useMemo(() => mockApi.getPlans(), []);
   const allResponses = useMemo(() => mockApi.getResponses(), []);
@@ -98,21 +104,19 @@ export default function Analytics() {
   }, [tasksFiltered, plans, responses]);
 
   const formForChart = forms.find((f) => f.id === chartFormId);
-  const numericFields = formForChart
-    ? formForChart.fields.filter((f) => f.type === 'number')
-    : [];
+  const chartFieldDef = formForChart?.fields?.find((x) => x.id === chartFieldId);
+  const chartFields = formForChart?.fields || [];
 
   const barData = useMemo(() => {
-    if (!chartFormId || !chartFieldId) return [];
-    const nums = responses
+    if (!chartFormId || !chartFieldId || !chartFieldDef) return [];
+    return responses
       .filter((r) => r.formId === chartFormId)
       .map((r, idx) => ({
         name: `#${idx + 1}`,
-        value: parseNum(r.answers[chartFieldId]),
+        value: chartValueForField(chartFieldDef, r.answers[chartFieldId]),
       }))
       .filter((x) => x.value != null);
-    return nums;
-  }, [chartFormId, chartFieldId, responses]);
+  }, [chartFormId, chartFieldId, chartFieldDef, responses]);
 
   const lineData = useMemo(() => {
     const doneTasks = tasks.filter(
@@ -231,10 +235,14 @@ export default function Analytics() {
       </div>
 
       <div className="panel">
-        <h2>Диаграмма 1: числовые ответы форм</h2>
+        <h2>Диаграмма 1: ответы по полю шаблона отчёта</h2>
+        <p style={{ fontSize: '0.85rem', color: 'var(--color-gray)', marginTop: 0 }}>
+          Текст — длина строки; дата — условный «день»; фото — 1 если файл указан,
+          иначе 0.
+        </p>
         <div className="grid-2">
           <div className="field">
-            <label>Форма</label>
+            <label>Шаблон отчёта</label>
             <select
               className="select"
               value={chartFormId}
@@ -252,17 +260,17 @@ export default function Analytics() {
             </select>
           </div>
           <div className="field">
-            <label>Числовое поле</label>
+            <label>Поле</label>
             <select
               className="select"
               value={chartFieldId}
               onChange={(e) => setChartFieldId(e.target.value)}
-              disabled={!numericFields.length}
+              disabled={!chartFields.length}
             >
               <option value="">—</option>
-              {numericFields.map((f) => (
+              {chartFields.map((f) => (
                 <option key={f.id} value={f.id}>
-                  {f.label}
+                  {f.label} ({f.type})
                 </option>
               ))}
             </select>
@@ -276,7 +284,7 @@ export default function Analytics() {
               <YAxis />
               <Tooltip />
               <Legend />
-              <Bar dataKey="value" fill="#00c2ff" name="Значение" />
+              <Bar dataKey="value" fill="#00c2ff" name="Показатель" />
             </BarChart>
           </ResponsiveContainer>
         </div>

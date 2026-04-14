@@ -8,7 +8,7 @@ export default function Login() {
   function handleLogin(e) {
     e.preventDefault();
     mockApi.setSession({ loggedIn: true });
-    navigate('/analytics', { replace: true });
+    navigate('/', { replace: true });
   }
 
   return (

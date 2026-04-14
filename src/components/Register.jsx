@@ -7,7 +7,7 @@ export default function Register() {
   function handleRegister(e) {
     e.preventDefault();
     mockApi.setSession({ loggedIn: true });
-    navigate('/analytics', { replace: true });
+    navigate('/', { replace: true });
   }
 
   return (

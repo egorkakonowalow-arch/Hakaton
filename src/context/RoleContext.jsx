@@ -76,12 +76,17 @@ export function RoleProvider({ children }) {
     [role, displayName]
   );
 
+  /** Навигация по сценариям: админ — районы, пользователи, шаблоны отчётов; руководитель — планы/задачи/аналитика; сотрудник — задачи и отчёты. */
   const canSeeModule = useCallback((moduleId) => {
     if (moduleId === 'profile') return true;
-    if (role === 'admin') return true;
+    if (role === 'admin')
+      return ['districts', 'users', 'data', 'scenarios'].includes(moduleId);
     if (role === 'manager')
-      return ['tasks', 'plans', 'analytics', 'profile'].includes(moduleId);
-    if (role === 'executor') return ['tasks', 'profile'].includes(moduleId);
+      return ['tasks', 'plans', 'analytics', 'data', 'scenarios'].includes(
+        moduleId
+      );
+    if (role === 'executor')
+      return ['tasks', 'data', 'scenarios'].includes(moduleId);
     return false;
   }, [role]);
 

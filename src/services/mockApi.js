@@ -11,6 +11,8 @@ const K = {
   plans: `${PREFIX}plans`,
   tasks: `${PREFIX}tasks`,
   session: `${PREFIX}session`,
+  districts: `${PREFIX}districts`,
+  users: `${PREFIX}users`,
 };
 
 function read(key, fallback) {
@@ -42,7 +44,7 @@ export const PLAN_TEMPLATES = [
     name: 'Мероприятие',
     fields: [
       { key: 'goal', label: 'Цель', type: 'text' },
-      { key: 'budget', label: 'Бюджет', type: 'number' },
+      { key: 'budget', label: 'Бюджет', type: 'text' },
     ],
   },
 ];
@@ -50,20 +52,82 @@ export const PLAN_TEMPLATES = [
 const ASSIGNEES = ['Иванов', 'Петров', 'Сидорова'];
 export const MANAGER_DEPARTMENT = 'Отдел продаж';
 
+function migrateReportFields(fields) {
+  if (!Array.isArray(fields)) return [];
+  return fields.map((f) => {
+    let type = f.type;
+    if (type === 'number' || type === 'file') type = 'photo';
+    if (!['text', 'date', 'photo'].includes(type)) type = 'text';
+    const required =
+      f.required !== undefined
+        ? Boolean(f.required)
+        : type !== 'photo';
+    return { ...f, type, required };
+  });
+}
+
+function migrateFormsList(forms) {
+  return forms.map((form) => ({
+    ...form,
+    fields: migrateReportFields(form.fields),
+  }));
+}
+
 function seedIfEmpty() {
   if (read(K.forms, null) !== null) return;
 
   const demoFormId = uid();
   const demoForm = {
     id: demoFormId,
-    title: 'Отчёт о результатах',
+    title: 'Ежемесячный отчёт о мероприятии',
     fields: [
-      { id: 'f1', label: 'Название', type: 'text' },
-      { id: 'f2', label: 'Сумма', type: 'number' },
-      { id: 'f3', label: 'Дата', type: 'date' },
+      { id: 'f1', label: 'Название мероприятия', type: 'text', required: true },
+      { id: 'f2', label: 'Дата проведения', type: 'date', required: true },
+      { id: 'f3', label: 'Фото мероприятия', type: 'photo', required: false },
     ],
     createdAt: new Date().toISOString(),
   };
+
+  const districtId = uid();
+  const districts = [
+    { id: districtId, name: 'Город Чита', code: 'chita' },
+    { id: uid(), name: 'Борозинский район', code: 'borozinsky' },
+  ];
+
+  const users = [
+    {
+      id: uid(),
+      fullName: 'Кузмин В.Б.',
+      email: 'kuzmin@example.org',
+      role: 'manager',
+      allDistricts: true,
+      districtIds: [],
+    },
+    {
+      id: uid(),
+      fullName: 'Иванов',
+      email: 'ivanov@example.org',
+      role: 'employee',
+      allDistricts: false,
+      districtIds: [districtId],
+    },
+    {
+      id: uid(),
+      fullName: 'Петров',
+      email: 'petrov@example.org',
+      role: 'employee',
+      allDistricts: false,
+      districtIds: [districtId],
+    },
+    {
+      id: uid(),
+      fullName: 'Сидорова',
+      email: 'sidorova@example.org',
+      role: 'employee',
+      allDistricts: false,
+      districtIds: [districtId],
+    },
+  ];
 
   const today = new Date();
   const y = (d) => d.toISOString().slice(0, 10);
@@ -112,7 +176,7 @@ function seedIfEmpty() {
       responsible: 'Иванов',
       department: MANAGER_DEPARTMENT,
       templateId: 'event',
-      extra: { goal: 'Рост участия', budget: 120000 },
+      extra: { goal: 'Рост участия', budget: '120000' },
       history: [
         {
           at: new Date().toISOString(),
@@ -127,6 +191,60 @@ function seedIfEmpty() {
   write(K.responses, []);
   write(K.plans, plans);
   write(K.tasks, tasks);
+  write(K.districts, districts);
+  write(K.users, users);
+}
+
+function ensureDirectories() {
+  seedIfEmpty();
+  if (read(K.districts, null) === null) write(K.districts, []);
+  if (read(K.users, null) === null) write(K.users, []);
+
+  const districts = read(K.districts, []);
+  const users = read(K.users, []);
+  const forms = read(K.forms, []);
+  if (forms.length && !districts.length && !users.length) {
+    const id = uid();
+    write(K.districts, [
+      { id, name: 'Город Чита', code: 'chita' },
+      { id: uid(), name: 'Борозинский район', code: 'borozinsky' },
+    ]);
+    const d0 = read(K.districts, [])[0]?.id || id;
+    write(K.users, [
+      {
+        id: uid(),
+        fullName: 'Кузмин В.Б.',
+        email: 'kuzmin@example.org',
+        role: 'manager',
+        allDistricts: true,
+        districtIds: [],
+      },
+      {
+        id: uid(),
+        fullName: 'Иванов',
+        email: 'ivanov@example.org',
+        role: 'employee',
+        allDistricts: false,
+        districtIds: [d0],
+      },
+      {
+        id: uid(),
+        fullName: 'Петров',
+        email: 'petrov@example.org',
+        role: 'employee',
+        allDistricts: false,
+        districtIds: [d0],
+      },
+      {
+        id: uid(),
+        fullName: 'Сидорова',
+        email: 'sidorova@example.org',
+        role: 'employee',
+        allDistricts: false,
+        districtIds: [d0],
+      },
+    ]);
+  }
 }
 
 function normalizeTask(t) {
@@ -138,7 +256,6 @@ function normalizeTask(t) {
 }
 
 export const mockApi = {
-  /* --- session (демо-вход) --- */
   getSession() {
     return read(K.session, { loggedIn: false });
   },
@@ -146,21 +263,83 @@ export const mockApi = {
     write(K.session, s);
   },
 
-  /* --- формы --- */
+  getDistricts() {
+    ensureDirectories();
+    return read(K.districts, []);
+  },
+  saveDistrict({ name, code }) {
+    ensureDirectories();
+    const list = read(K.districts, []);
+    const row = {
+      id: uid(),
+      name: name.trim(),
+      code: (code || '').trim().toLowerCase(),
+    };
+    list.push(row);
+    write(K.districts, list);
+    return row;
+  },
+  deleteDistrict(id) {
+    ensureDirectories();
+    const list = read(K.districts, []).filter((d) => d.id !== id);
+    write(K.districts, list);
+  },
+
+  getUsers() {
+    ensureDirectories();
+    return read(K.users, []);
+  },
+  saveUser(payload) {
+    ensureDirectories();
+    const list = read(K.users, []);
+    const row = {
+      id: payload.id || uid(),
+      fullName: payload.fullName.trim(),
+      email: (payload.email || '').trim(),
+      role: payload.role,
+      allDistricts: Boolean(payload.allDistricts),
+      districtIds: Array.isArray(payload.districtIds) ? payload.districtIds : [],
+    };
+    if (row.role === 'employee' && row.districtIds.length !== 1) {
+      throw new Error('Сотруднику нужен ровно один район');
+    }
+    if (row.role === 'manager' && !row.allDistricts && !row.districtIds.length) {
+      throw new Error('Укажите районы или «Все районы»');
+    }
+    const i = list.findIndex((u) => u.id === row.id);
+    if (i >= 0) list[i] = row;
+    else list.push(row);
+    write(K.users, list);
+    return row;
+  },
+  deleteUser(id) {
+    ensureDirectories();
+    write(
+      K.users,
+      read(K.users, []).filter((u) => u.id !== id)
+    );
+  },
+
   getForms() {
     seedIfEmpty();
-    return read(K.forms, []);
+    const forms = read(K.forms, []);
+    const migrated = migrateFormsList(forms);
+    if (JSON.stringify(migrated) !== JSON.stringify(forms)) {
+      write(K.forms, migrated);
+    }
+    return migrated;
   },
   saveForm({ title, fields }) {
-    seedIfEmpty();
+    ensureDirectories();
     const forms = read(K.forms, []);
     const row = {
       id: uid(),
       title: title.trim(),
       fields: fields.map((f) => ({
         id: f.id || uid(),
-        label: f.label,
-        type: f.type,
+        label: (f.label || '').trim(),
+        type: ['text', 'date', 'photo'].includes(f.type) ? f.type : 'text',
+        required: Boolean(f.required),
       })),
       createdAt: new Date().toISOString(),
     };
@@ -170,11 +349,11 @@ export const mockApi = {
   },
 
   getResponses() {
-    seedIfEmpty();
+    ensureDirectories();
     return read(K.responses, []);
   },
   submitResponse({ formId, answers, submittedBy }) {
-    seedIfEmpty();
+    ensureDirectories();
     const list = read(K.responses, []);
     const row = {
       id: uid(),
@@ -188,13 +367,12 @@ export const mockApi = {
     return row;
   },
 
-  /* --- планы --- */
   getPlans() {
-    seedIfEmpty();
+    ensureDirectories();
     return read(K.plans, []);
   },
   createPlan(payload) {
-    seedIfEmpty();
+    ensureDirectories();
     const plans = read(K.plans, []);
     const row = {
       id: uid(),
@@ -219,7 +397,7 @@ export const mockApi = {
     return row;
   },
   updatePlan(id, payload) {
-    seedIfEmpty();
+    ensureDirectories();
     const plans = read(K.plans, []);
     const i = plans.findIndex((p) => p.id === id);
     if (i < 0) return null;
@@ -241,16 +419,15 @@ export const mockApi = {
     return next;
   },
 
-  /* --- задачи --- */
   getTasksRaw() {
-    seedIfEmpty();
+    ensureDirectories();
     return read(K.tasks, []);
   },
   getTasks() {
     return this.getTasksRaw().map(normalizeTask);
   },
   createTask(payload) {
-    seedIfEmpty();
+    ensureDirectories();
     const tasks = read(K.tasks, []);
     const row = {
       id: uid(),
@@ -267,7 +444,7 @@ export const mockApi = {
     return normalizeTask(row);
   },
   completeTask(id) {
-    seedIfEmpty();
+    ensureDirectories();
     const tasks = read(K.tasks, []);
     const i = tasks.findIndex((t) => t.id === id);
     if (i < 0) return null;
@@ -280,7 +457,7 @@ export const mockApi = {
     return normalizeTask(tasks[i]);
   },
   updateTask(id, patch) {
-    seedIfEmpty();
+    ensureDirectories();
     const tasks = read(K.tasks, []);
     const i = tasks.findIndex((t) => t.id === id);
     if (i < 0) return null;

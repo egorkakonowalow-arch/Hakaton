@@ -5,7 +5,7 @@ import { mockApi } from '../services/mockApi';
 const ROLE_LABEL = {
   admin: 'Администратор',
   manager: 'Руководитель',
-  executor: 'Исполнитель',
+  executor: 'Сотрудник',
 };
 
 export default function UserProfile() {
@@ -55,13 +55,13 @@ export default function UserProfile() {
           >
             <option value="admin">Администратор</option>
             <option value="manager">Руководитель</option>
-            <option value="executor">Исполнитель</option>
+            <option value="executor">Сотрудник</option>
           </select>
         </div>
 
         {role === 'executor' && (
           <div className="field" style={{ maxWidth: 320 }}>
-            <label>Исполнитель (для фильтра задач)</label>
+            <label>Сотрудник (для фильтра задач)</label>
             <select
               className="select"
               value={executorPerson}
@@ -101,7 +101,7 @@ export default function UserProfile() {
       </div>
 
       <div className="panel">
-        <h2>Отправленные формы</h2>
+        <h2>Отправленные отчёты</h2>
         <div className="table-wrap">
           <table className="data-table">
             <thead>
