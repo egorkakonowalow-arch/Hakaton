@@ -1,0 +1,124 @@
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useMemo,
+  useState,
+} from 'react';
+import { mockApi, MANAGER_DEPARTMENT, ASSIGNEES } from '../services/mockApi';
+
+const RoleContext = createContext(null);
+
+const ROLE_KEY = 'mgmt_role';
+const EXEC_KEY = 'mgmt_exec';
+
+function loadRole() {
+  try {
+    const r = localStorage.getItem(ROLE_KEY);
+    if (r === 'admin' || r === 'manager' || r === 'executor') return r;
+  } catch {
+    /* ignore */
+  }
+  return 'admin';
+}
+
+function loadExec() {
+  try {
+    const e = localStorage.getItem(EXEC_KEY);
+    if (ASSIGNEES.includes(e)) return e;
+  } catch {
+    /* ignore */
+  }
+  return ASSIGNEES[0];
+}
+
+export function RoleProvider({ children }) {
+  const [role, setRoleState] = useState(loadRole);
+  const [executorPerson, setExecutorPersonState] = useState(loadExec);
+
+  const setRole = useCallback((r) => {
+    setRoleState(r);
+    localStorage.setItem(ROLE_KEY, r);
+  }, []);
+
+  const setExecutorPerson = useCallback((name) => {
+    setExecutorPersonState(name);
+    localStorage.setItem(EXEC_KEY, name);
+  }, []);
+
+  const displayName = 'Демо Пользователь';
+
+  const filterTasks = useCallback(
+    (tasks) => {
+      if (role === 'admin') return tasks;
+      if (role === 'manager')
+        return tasks.filter((t) => t.group === MANAGER_DEPARTMENT);
+      return tasks.filter((t) => t.assignee === executorPerson);
+    },
+    [role, executorPerson]
+  );
+
+  const filterPlans = useCallback(
+    (plans) => {
+      if (role === 'admin') return plans;
+      if (role === 'manager')
+        return plans.filter((p) => p.department === MANAGER_DEPARTMENT);
+      return plans.filter((p) => p.responsible === executorPerson);
+    },
+    [role, executorPerson]
+  );
+
+  const filterResponses = useCallback(
+    (rows) => {
+      if (role === 'admin' || role === 'manager') return rows;
+      return rows.filter((r) => r.submittedBy === displayName);
+    },
+    [role, displayName]
+  );
+
+  const canSeeModule = useCallback((moduleId) => {
+    if (moduleId === 'profile') return true;
+    if (role === 'admin') return true;
+    if (role === 'manager')
+      return ['tasks', 'plans', 'analytics', 'profile'].includes(moduleId);
+    if (role === 'executor') return ['tasks', 'profile'].includes(moduleId);
+    return false;
+  }, [role]);
+
+  const value = useMemo(
+    () => ({
+      role,
+      setRole,
+      executorPerson,
+      setExecutorPerson,
+      displayName,
+      filterTasks,
+      filterPlans,
+      filterResponses,
+      canSeeModule,
+      ASSIGNEES,
+      MANAGER_DEPARTMENT,
+    }),
+    [
+      role,
+      setRole,
+      executorPerson,
+      setExecutorPerson,
+      displayName,
+      filterTasks,
+      filterPlans,
+      filterResponses,
+      canSeeModule,
+    ]
+  );
+
+  return (
+    <RoleContext.Provider value={value}>{children}</RoleContext.Provider>
+  );
+}
+
+export function useRole() {
+  const ctx = useContext(RoleContext);
+  if (!ctx) throw new Error('useRole outside RoleProvider');
+  return ctx;
+}
